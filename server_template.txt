@@ -1,0 +1,5 @@
+Name
+Port
+File Location
+availability [public, private]
+Players if private

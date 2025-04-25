@@ -32,8 +32,8 @@ intents.message_content = True
 
 # client = discord.Client(intents=intents)
 client = commands.Bot(command_prefix='!', intents=intents)
+CHANNEL_NAME = "server-status"
 
-# server_on = False
 curr_servers = []
 onboard_servers = []
 test_server_list = ["server0.txt", "server1.txt", "server2.txt", "server3.txt"]
@@ -47,26 +47,27 @@ thread = None
 async def on_ready():
     global saved_servers, thread
     print(f'We have logged in as {client.user}')
-    # check_server_status()
+    send_channel = None
     for guild in client.guilds:
         existing_channel = discord.utils.get(guild.text_channels, name=CHANNEL_NAME)
         if existing_channel:
             print(f"Channel #{CHANNEL_NAME} already exists in {guild.name}.")
+            send_channel = existing_channel
         else:
             print(f"Creating channel #{CHANNEL_NAME} in {guild.name}...")
             await guild.create_text_channel(CHANNEL_NAME)
-
+            send_channel = discord.utils.get(guild.text_channels, name=CHANNEL_NAME)
+    saved_servers = []
     for server in test_server_list:
         s = sc.Server(server, server_domain)
         saved_servers.append(s)
         print(s)
-    client.loop.create_task(handle_discord())
+    client.loop.create_task(handle_discord(send_channel))
 
 
 
 @client.event
 async def on_message(message):
-    global on, CHANNEL_NUM
     if message.author == client.user:
         return
 
@@ -111,8 +112,7 @@ async def on_message(message):
                 set_server.turn_on_server()
                 onboard_servers.append(set_server)
                 await set_server.my_background_task()
-                if not on:
-                    on = True
+
         else:
             await message.channel.send('Invalid Permission, not approved to run server.')
 
@@ -120,22 +120,37 @@ async def on_message(message):
         display_list = "Server List\n"
         count = 0
         for server in saved_servers:
-            print(count)
             if server.running:
                 display_list = display_list + str(count-1) + ": " + "(RUNNING) " + server.get_name() + " ("+server.get_privacy()+")"+ "\n"
             else:
                 display_list = display_list + str(count) + ": " + server.get_name() + " (" + server.get_privacy() + ")" + "\n"
             count += 1
-            print(display_list)
         await message.channel.send(display_list)
 
     # TODO UPDATE COMMANDS
-    # if message.content == '!tp_list':
-    #     if curr_server is not None:
-    #         display_list = f"Tp List for {curr_server.get_name()}\n"
-    #         for t in curr_server.tele:
-    #             display_list = display_list + t.name + "\n"
-    #         await message.channel.send(display_list)
+    if message.content.startswith('!tp_list '):
+        content = message.content.split(' ', 1)
+        if len(content) != 2:
+            await message.channel.send('Proper format: !tp_list [int]')
+            return
+        else:
+            try:
+                server_int = int(content[1])
+            except ValueError as verr:
+                await message.channel.send('Specify a server by number')
+                return
+            except Exception as ex:
+                pass
+                return
+            if server_int < len(saved_servers):
+                display_list = f"Tp List for {saved_servers[server_int].get_name()}\n"
+                for t in saved_servers[server_int].tele:
+                    display_list = display_list + t.name + "\n"
+                await message.channel.send(display_list)
+            else:
+                await message.channel.send('Specify a valid server number, here\'s the list:')
+                await message.channel.send('!list')
+                return
 
     #TODO UPDATE COMMANDS
 
@@ -155,13 +170,13 @@ async def on_message(message):
     #     content = message.content.split(' ', 1)
     #     send_command(content[1])
 
-async def handle_discord():
+async def handle_discord(send_channel):
     global past_messages, curr_servers
     await client.wait_until_ready()  # Wait until the bot is fully ready
-    channel = client.get_channel(int(CHANNEL_NUM))
+    # channel = client.get_channel(int(CHANNEL_NUM))
+    channel = send_channel
     await channel.purge(limit=10)
     await channel.send(f"Bot is on and ready!")
-    past_messages += 1
 
     while not client.is_closed():
         if len(onboard_servers) != 0:

@@ -5,6 +5,7 @@ import subprocess
 import time
 import threading
 import asyncio
+import os.path
 
 class tele:
     def __init__(self, author, name, x, y, z):
@@ -25,10 +26,17 @@ class Server:
         self.settings = f.readline().strip()
         self.people = f.readline().strip().split(',')
         self.tele = []
-        for line in f.readlines():
-            line = line.strip().split(":")
-            x, y, z = line[2].split(",")
-            self.tele.append(tele(line[0], line[1], x, y, z))
+        file_path = self.folder+"\\"+"tele_list.txt"
+        if not os.path.exists(file_path):
+            with open(file_path, "x") as file:
+                pass
+        else:
+            tele_list = open(file_path, "r")
+            for line in tele_list.readlines():
+                line = line.strip().split(":")
+                x, y, z = line[2].split(",")
+                self.tele.append(tele(line[0], line[1], x, y, z))
+            tele_list.close()
         f.close()
 
         self.domain = s_domain
@@ -67,14 +75,7 @@ class Server:
         self.save()
 
     def save(self):
-        f = open(self.loc, 'w')
-        f.write(self.name + "\n")
-        f.write(self.folder + "\n")
-        f.write(self.settings + "\n")
-        people_string = ""
-        for person in self.people:
-            people_string += "," + person
-        f.write(people_string[1:] + "\n")
+        f = open(self.folder+"\\"+"tele_list.txt", 'w')
         for tel in self.tele:
             f.write(tel.author + ":" + tel.name + ":" + str(tel.x) + "," + str(tel.y) + "," + str(tel.z) + "\n")
         f.close()
@@ -145,7 +146,9 @@ class Server:
     def check_sleep(self):
         if len(self.curr_sleep_vote) > 0:
             self.send_command(r"/time set 700")
-            self.send_command(r"/say Snoozed")
+            self.send_command("/title @a times 10 20 10")
+            self.send_command("/title @a title {\"text\":\"Snoozed\",\"color\":\"gold\",\"bold\":false}")
+            # self.send_command(r"/say Snoozed")
             self.curr_sleep_vote = []
         if self.afk_mode:
             if time.time() - self.curr_time > 500:
@@ -219,7 +222,12 @@ class Server:
                     if loc is not None:
                         name = x[0]
                         print(name)
-                        self.send_command(r"/tp " + str(name) + " " + str(loc[0]) + " " + str(loc[1]) + " " + str(loc[2]))
+                        self.send_command(
+                            r"/tp " + str(name) + " " + str(loc[0]) + " " + str(loc[1]) + " " + str(loc[2]))
+                        self.send_command("/title " + str(name) + " times 5 10 5")
+                        self.send_command("/title "+str(name)+" title {\"text\":\""+temp+"\",\"color\":\"dark_purple\",\"bold\":false}")
+
+
                     else:
                         self.send_command(r"/tp " + str(x[0]) + " " + temp)
 
